@@ -2,31 +2,28 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Menu, X, ArrowRight, Sparkles, Heart, Captions, ShieldAlert,
-  MessageSquareText, GraduationCap, Mic, Code2, Bot, BrainCircuit,
-  Terminal, Cpu, Check, Send, Star, Quote, Twitter, Github, ChevronLeft, ChevronRight,
-  Linkedin, Instagram, Handshake,
+  MessageSquareText, GraduationCap, Users, Check, Send, Star, Quote,
+  Twitter, Github, ChevronLeft, ChevronRight, Linkedin, Instagram, Handshake,
 } from "lucide-react";
 import campusImage from '../assets/campus-green-building.webp';
 
 /* --- DATA CONFIG --- */
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
-  { label: "Career Suite", href: "#career" },
   { label: "Feedback", href: "#feedback" },
-  // { label: "Pricing", href: "#pricing" },
   { label: "Contact", href: "#contact" },
 ];
 
 const FEATURES = [
   {
-    icon: Mic,
-    title: "AI Interview",
-    description: "Practice with our AI interviewer. Get real-time feedback on answers and confidence.",
+    icon: Users,
+    title: "Project Squads",
+    description: "Form and manage campus squads for hackathons, study groups, and engineering projects.",
   },
   {
     icon: Heart,
     title: "AI Matchmaker",
-    description: "Smart algorithms pair you with study partners and collaborators based on interests.",
+    description: "Smart algorithms pair you with study partners, mentors, and teammates based on skills.",
   },
   {
     icon: Captions,
@@ -50,32 +47,11 @@ const FEATURES = [
   },
 ];
 
-const CAREER_CARDS = [
-  {
-    icon: Mic,
-    title: "AI Mock Interviews",
-    description: "Practice with our AI interviewer. Get real-time feedback on answers and confidence.",
-    tags: [
-      { icon: Bot, label: "Adaptive AI" },
-      { icon: BrainCircuit, label: "Real-time Feedback" },
-    ],
-  },
-  {
-    icon: Code2,
-    title: "Technical Assessments",
-    description: "Sharpen coding skills with challenges. AI evaluates solutions for efficiency.",
-    tags: [
-      { icon: Terminal, label: "20+ Languages" },
-      { icon: Cpu, label: "AI Code Review" },
-    ],
-  },
-];
-
 const TESTIMONIALS = [
   {
     name: "Priya Sharma",
     role: "CS Senior, MIT",
-    quote: "CampusConnect's AI Mock Interviews helped me nail my Google internship.",
+    quote: "CampusConnect's AI Matchmaker helped me find the ideal teammates for our national hackathon.",
     rating: 5,
   },
   {
@@ -390,7 +366,7 @@ export default function App() {
       </section>
 
       {/* ====== CAREER SUITE ====== */}
-      <section id="career" className="relative px-6 py-28 bg-cyan-900/10">
+      {/* <section id="career" className="relative px-6 py-28 bg-cyan-900/10">
         <div className="relative z-10 mx-auto max-w-6xl">
           <Reveal className="mb-16 text-center">
             <span className="mb-3 inline-block text-sm font-semibold uppercase tracking-widest text-cyan-400">Career Suite</span>
@@ -419,7 +395,7 @@ export default function App() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* ====== PRICING ====== */}
       {/* <section id="pricing" className="relative px-6 py-28">

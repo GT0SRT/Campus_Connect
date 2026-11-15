@@ -34,7 +34,6 @@ model User {
   profileCompletePercentage Int      @default(0)
 
   posts        Post[]
-  interviews   Interview[]
   threads      Thread[]
   comments     Comment[]
   likedPosts   PostLike[]
@@ -42,8 +41,11 @@ model User {
   savedPosts   SavedPost[]
   savedThreads SavedThread[]
 
+  ownedSquads   Squad[]        @relation("SquadOwner")
+  squadMembers  SquadMember[]
+  squadMessages SquadMessage[]
+
   createdAt  DateTime     @default(now())
-  Assessment Assessment[]
 }
 
 model Post {
@@ -57,67 +59,6 @@ model Post {
   likes    PostLike[]
   comments Comment[]
   savedBy  SavedPost[]
-
-  createdAt DateTime @default(now())
-}
-
-model Interview {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  companyName          String? @default("Practice")
-  jobRole              String? @default("SDE")
-  difficulty           String? @default("moderate")
-  interviewDurationSec Int     @default(0)
-  transcript           Json?   @default("[]")
-  metadata             Json?   @default("{}")
-
-  overallScore           Float
-  metricTechnical        Float
-  metricBehavioral       Float
-  metricCommunication    Float
-  metricProblemSolving   Float
-  metricCompanyKnowledge Float
-  topicsCovered          String[]
-
-  overallAssessment String @db.Text
-
-  keyStrengths        String[]
-  areasForImprovement String[]
-
-  recommendation Recommendation
-  reasoning      String         @db.Text
-
-  createdAt DateTime @default(now())
-}
-
-enum Recommendation {
-  STRONG_YES
-  YES
-  MAYBE
-  NO
-}
-
-model Assessment {
-  id          String  @id @default(uuid())
-  userId      String
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName String?
-  roleName    String?
-  difficulty  String?
-
-  overallScore    Float
-  correctAnswers  Int
-  totalQuestions  Int
-  metricTechnical Float?
-  metricAccuracy  Float?
-  topicsCovered   String[]
-  strengths       String[]
-  improvements    String   @db.Text
-  feedback        String   @db.Text
-
-  detailedAnalysis Json @default("[]")
 
   createdAt DateTime @default(now())
 }
@@ -203,6 +144,46 @@ model SavedThread {
   thread   Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@unique([userId, threadId])
+}
+
+model Squad {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User     @relation("SquadOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  members   SquadMember[]
+  messages  SquadMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SquadMember {
+  id       String   @id @default(uuid())
+  squadId  String
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+
+  squad Squad @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, userId])
+}
+
+model SquadMessage {
+  id        String   @id @default(uuid())
+  squadId   String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  squad  Squad @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([squadId, createdAt])
 }
 
 enum VoteType {

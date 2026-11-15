@@ -9,9 +9,9 @@ const PrivateRoute = ({ children }) => {
     document.title = user ? "CampusConnect" : "CampusConnect - Sign In";
   }, [user]);
 
-  if (!user?.uid) {
-    return <Navigate to="/auth" replace />;
-  }
+  // if (!user?.uid) {
+  //   return <Navigate to="/auth" replace />;
+  // }
 
   return children;
 };

@@ -16,6 +16,14 @@ export default function TalentCard({ u, onSkip, onConnect, showActions = true })
     .replace(/\s+/g, "")
     .replace(/[^a-z0-9._]/g, "") || "campususer";
 
+  const scorePct = Number.isFinite(Number(u?.matchScore))
+    ? Math.max(0, Math.min(100, Math.round(Number(u.matchScore))))
+    : Number(u?.compatibilityPercent ?? u?.score ?? 0);
+
+  const matchReasons = Array.isArray(u?.matchReasons) && u.matchReasons.length > 0
+    ? u.matchReasons
+    : [];
+
   return (
     <div
       className={`relative border-t-cyan-400 border-t-4 rounded-2xl border
@@ -35,7 +43,7 @@ export default function TalentCard({ u, onSkip, onConnect, showActions = true })
         {/* Header section */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-5">
-            <MatchRing percentage={u.compatibilityPercent}>
+            <MatchRing percentage={scorePct}>
               {u.profile_pic && !showImageFallback ? (
                 <img
                   src={u.profile_pic}
@@ -51,9 +59,14 @@ export default function TalentCard({ u, onSkip, onConnect, showActions = true })
             </MatchRing>
 
             <div className="leading-tight">
-              <h2 className={`text-lg font-semibold ${isDark ? "text-slate-100" : "text-gray-900"}`}>
-                {u.name}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className={`text-lg font-semibold ${isDark ? "text-slate-100" : "text-gray-900"}`}>
+                  {u.name}
+                </h2>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "bg-cyan-100 text-cyan-800"}`}>
+                  {scorePct}% match
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => navigate(`/profile/${profileUsername}`)}
@@ -76,6 +89,23 @@ export default function TalentCard({ u, onSkip, onConnect, showActions = true })
             {u.bio}
           </p>
         ) : null}
+
+        {matchReasons.length > 0 && (
+          <Section title="Why this match" isDark={isDark}>
+            <div className="flex flex-wrap gap-2">
+              {matchReasons.slice(0, 6).map((reason, index) => (
+                <span
+                  key={`${reason}-${index}`}
+                  className={`px-2.5 py-1 text-xs rounded-full font-medium ${isDark
+                    ? "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
+                    : "bg-emerald-50 text-emerald-800 border border-emerald-200"}`}
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* Shared Skills */}
         <Section title="Skills" isDark={isDark}>

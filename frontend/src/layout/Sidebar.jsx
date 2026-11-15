@@ -1,10 +1,15 @@
-import { useRef, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
-  Home, Code, ScrollText, User, LogOut, X, Settings as SettingsIcon,
-  Handshake, Bot, UsersRound, Brain, ChevronDown
+  Home,
+  ScrollText,
+  User,
+  LogOut,
+  X,
+  Settings as SettingsIcon,
+  Handshake,
+  Bot,
+  UsersRound,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useUserStore } from "../store/useUserStore";
 import { logout } from "../services/authService";
 
@@ -32,29 +37,16 @@ export default function Sidebar({ onItemClick, onClose }) {
   const theme = useUserStore((state) => state.theme);
   const user = useUserStore((state) => state.user);
   const clearUser = useUserStore((state) => state.clearUser);
-  const { pathname } = useLocation();
-  const isAiActive = pathname.toLowerCase().startsWith("/interview");
-  const isAssessmentActive = pathname.toLowerCase().startsWith("/ai-assessment");
-  const [isAssessmentMenuOpen, setIsAssessmentMenuOpen] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const timerRef = useRef(null);
 
-  const isMenuOpen = isPinned || isHovered;
   const isMobileDrawer = typeof onClose === "function";
   const profileUsername = user?.username || user?.email?.split("@")[0] || "me";
   const profileRoute = `/profile/${profileUsername}`;
-
-  const handleHover = (open) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (open) setIsHovered(true);
-    else timerRef.current = setTimeout(() => setIsHovered(false), 220);
-  };
 
   const handleLogout = async () => {
     try {
       await logout();
     } catch {
+      // Ignore logout API errors and clear local session
     } finally {
       localStorage.removeItem("auth-token");
       clearUser();
@@ -77,58 +69,15 @@ export default function Sidebar({ onItemClick, onClose }) {
           </div>
           <span className="text-lg font-bold tracking-tight">Campus Connect</span>
         </div>
-        <button onClick={onClose} className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}><X size={24} /></button>
+        <button onClick={onClose} className={`p-2 rounded-lg ${theme === 'dark' ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}>
+          <X size={24} />
+        </button>
       </div>
 
       <Item to="/home" label="Home" Icon={Home} theme={theme} onItemClick={onItemClick} />
       <Item to="/threads" label="Threads" Icon={ScrollText} theme={theme} onItemClick={onItemClick} />
       <Item to="/matchmaker" label="AI Matchmaker" Icon={Bot} theme={theme} onItemClick={onItemClick} />
       <Item to="/squad" label="Squad" Icon={UsersRound} theme={theme} onItemClick={onItemClick} />
-
-      <div>
-        <div className={getLinkStyles(isAssessmentActive, theme)}>
-          <NavLink to="/AI-assessment" onClick={onItemClick} className="flex flex-1 items-center gap-3">
-            <Code className="w-5 h-5" />
-            <span>AI Assessment</span>
-          </NavLink>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              setIsAssessmentMenuOpen((prev) => !prev);
-            }}
-            className={`ml-2 rounded-md p-1 transition ${theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-gray-200'}`}
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isAssessmentMenuOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-        <div className={`ml-8 mt-1 space-y-1 overflow-hidden origin-top transition-all duration-300 ease-out ${isAssessmentMenuOpen ? 'max-h-40 scale-y-100 opacity-100' : 'max-h-0 scale-y-95 opacity-0'}`}>
-          <Item to="/AI-assessment" label="Quick Assessment" theme={theme} onItemClick={onItemClick} end />
-          <Item to="/AI-assessment/history" label="Assessment History" theme={theme} onItemClick={onItemClick} />
-        </div>
-      </div>
-
-      <div >
-        <div className={getLinkStyles(isAiActive, theme)}>
-          <NavLink to="/interview" onClick={onItemClick} className="flex flex-1 items-center gap-3">
-            <Brain className="w-5 h-5" />
-            <span>AI Interview</span>
-          </NavLink>
-          <button
-            onClick={(e) => { e.preventDefault(); setIsPinned(!isPinned); }}
-            onMouseEnter={() => handleHover(true)}
-            onMouseLeave={() => handleHover(false)}
-            className={`ml-2 rounded-md p-1 transition ${theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-gray-200'}`}
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${isMenuOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        <div className={`ml-8 mt-1 space-y-1 overflow-hidden origin-top transition-all duration-300 ease-out 
-          ${isMenuOpen ? 'max-h-40 scale-y-100 opacity-100' : 'max-h-0 scale-y-95 opacity-0'}`}>
-          <Item to="/interview/join" label="Quick Interview" theme={theme} onItemClick={onItemClick} end />
-          <Item to="/interview/history" label="Interview History" theme={theme} onItemClick={onItemClick} />
-        </div>
-      </div>
 
       <Item to={profileRoute} label="Profile" Icon={User} theme={theme} onItemClick={onItemClick} />
       <Item to="/settings" label="Settings" Icon={SettingsIcon} theme={theme} onItemClick={onItemClick} />

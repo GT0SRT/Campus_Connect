@@ -36,6 +36,16 @@ export async function respondConnectionRequest(requestId, action) {
     return response.data;
 }
 
+export async function getSquadMessages(squadId) {
+    const response = await api.get(`/squads/${squadId}/messages`);
+    return response.data?.messages || [];
+}
+
+export async function postSquadMessageRest(squadId, content) {
+    const response = await api.post(`/squads/${squadId}/messages`, { content });
+    return response.data?.message || null;
+}
+
 export async function generateConnectionMessage({ myName, theirName, context = "" }) {
     try {
         const prompt = [

@@ -680,3 +680,74 @@ exports.sendDirectMessage = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
+
+// Squad group chat (Prisma SquadMessage)
+exports.getSquadMessages = async (req, res) => {
+    try {
+        const squadId = toTrimmed(req.params.squadId);
+        if (!squadId) return res.status(400).json({ error: 'squadId required' });
+        const member = await prisma.squadMember.findFirst({
+            where: { squadId, userId: req.user.id },
+        });
+        if (!member) return res.status(403).json({ error: 'Not a squad member' });
+        const messages = await prisma.squadMessage.findMany({
+            where: { squadId },
+            orderBy: { createdAt: 'asc' },
+            take: 200,
+            include: {
+                sender: { select: { id: true, username: true, fullName: true, profileImageUrl: true } },
+            },
+        });
+        const out = messages.map((m) => ({
+            id: m.id,
+            squadId: m.squadId,
+            content: m.content,
+            createdAt: m.createdAt.toISOString(),
+            sender: {
+                id: m.sender.id,
+                username: m.sender.username,
+                name: m.sender.fullName || m.sender.username,
+                avatar: m.sender.profileImageUrl || '',
+            },
+        }));
+        return res.json({ messages: out });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+exports.postSquadMessage = async (req, res) => {
+    try {
+        const squadId = toTrimmed(req.params.squadId);
+        const content = toTrimmed(req.body?.content);
+        if (!squadId) return res.status(400).json({ error: 'squadId required' });
+        if (!content) return res.status(400).json({ error: 'content required' });
+        const member = await prisma.squadMember.findFirst({
+            where: { squadId, userId: req.user.id },
+        });
+        if (!member) return res.status(403).json({ error: 'Not a squad member' });
+        const msg = await prisma.squadMessage.create({
+            data: { squadId, senderId: req.user.id, content },
+            include: {
+                sender: { select: { id: true, username: true, fullName: true, profileImageUrl: true } },
+            },
+        });
+        const out = {
+            id: msg.id,
+            squadId: msg.squadId,
+            content: msg.content,
+            createdAt: msg.createdAt.toISOString(),
+            sender: {
+                id: msg.sender.id,
+                username: msg.sender.username,
+                name: msg.sender.fullName || msg.sender.username,
+                avatar: msg.sender.profileImageUrl || '',
+            },
+        };
+        const io = req.app.get('io');
+        if (io) io.to(`squad:${squadId}`).emit('receive_squad_message', out);
+        return res.status(201).json({ message: out });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};

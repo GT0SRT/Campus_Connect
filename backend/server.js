@@ -4,6 +4,10 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const http = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const prisma = require('./src/lib/prisma');
 
 dotenv.config();
 
@@ -51,21 +55,19 @@ const authRoutes = require('./src/routes/authRoutes');
 const postRoutes = require('./src/routes/postRoutes');
 const profileRoutes = require('./src/routes/profileRoutes');
 const threadRoutes = require('./src/routes/threadRoutes');
-const interviewRoutes = require('./src/routes/interviewRoutes');
-const assessmentsRoutes = require("./src/routes/assesmentsRoutes");
 const squadRoutes = require("./src/routes/squadRoutes");
 const searchRoutes = require("./src/routes/searchRoutes");
+const aiRoutes = require("./src/routes/aiRoutes");
 const { notFound, errorHandler } = require("./src/middleware/errorMiddleware");
 
 // Use Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/assessments', assessmentsRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/threads', threadRoutes);
-app.use('/api/interviews', interviewRoutes);
 app.use('/api/squads', squadRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/ai', aiRoutes);
 app.use("/api/thread", threadRoutes);
 app.use("/api/comments", commentRoutes);
 
@@ -87,10 +89,106 @@ app.get('/', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins.length ? allowedOrigins : true,
+    credentials: true,
+  },
+});
+
+io.use((socket, next) => {
+  try {
+    const token =
+      socket.handshake.auth?.token ||
+      (typeof socket.handshake.headers?.authorization === 'string' &&
+        socket.handshake.headers.authorization.startsWith('Bearer ')
+        ? socket.handshake.headers.authorization.slice(7)
+        : null);
+    if (!token) return next(new Error('Unauthorized'));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    return next();
+  } catch (e) {
+    return next(new Error('Unauthorized'));
+  }
+});
+
+io.on('connection', (socket) => {
+  socket.on('join_squad', async ({ squadId }, ack) => {
+    try {
+      const sid = String(squadId || '').trim();
+      if (!sid) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'squadId required' });
+        return;
+      }
+      const member = await prisma.squadMember.findFirst({
+        where: { squadId: sid, userId: socket.userId },
+      });
+      if (!member) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Not a squad member' });
+        return;
+      }
+      socket.join(`squad:${sid}`);
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, error: err.message || 'join failed' });
+    }
+  });
+
+  socket.on('send_squad_message', async (payload, ack) => {
+    try {
+      const squadId = String(payload?.squadId || '').trim();
+      const content = String(payload?.content || '').trim();
+      if (!squadId || !content) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'squadId and content required' });
+        return;
+      }
+      if (content.length > 4000) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Message too long' });
+        return;
+      }
+      const member = await prisma.squadMember.findFirst({
+        where: { squadId, userId: socket.userId },
+      });
+      if (!member) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'Not a squad member' });
+        return;
+      }
+      const msg = await prisma.squadMessage.create({
+        data: { squadId, senderId: socket.userId, content },
+        include: {
+          sender: {
+            select: { id: true, username: true, fullName: true, profileImageUrl: true },
+          },
+        },
+      });
+      const out = {
+        id: msg.id,
+        squadId: msg.squadId,
+        content: msg.content,
+        createdAt: msg.createdAt.toISOString(),
+        sender: {
+          id: msg.sender.id,
+          username: msg.sender.username,
+          name: msg.sender.fullName || msg.sender.username,
+          avatar: msg.sender.profileImageUrl || '',
+        },
+      };
+      io.to(`squad:${squadId}`).emit('receive_squad_message', out);
+      if (typeof ack === 'function') ack({ ok: true, message: out });
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, error: err.message || 'send failed' });
+    }
+  });
+});
+
+app.set('io', io);
+
 // Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+module.exports = { app, httpServer, io };
