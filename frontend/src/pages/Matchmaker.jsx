@@ -153,6 +153,7 @@ export default function Matchmaker() {
     isSending: false,
   });
   const [connectNotice, setConnectNotice] = useState(null);
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
   const {
     matches,
     handleSwipe,
@@ -329,9 +330,41 @@ export default function Matchmaker() {
     }
   };
 
-  const handleFilterSubmit = (event) => {
+  const handleFilterSubmit = async (event) => {
     event.preventDefault();
+    if (!filterInput.trim()) return;
 
+    // Try AI matchmaker-filters first
+    setAiSearchLoading(true);
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken") || "";
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:5000"}/api/ai/matchmaker-filters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ prompt: filterInput }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const sf = data.scoring_filters || {};
+        const strict = data.strict_filters || {};
+        const aiKeywords = [
+          ...(sf.skills_any || []),
+          ...(sf.interests_any || []),
+          ...(sf.keywords_any || []),
+        ].map((k) => normalizeText(k)).filter(Boolean);
+        setIntentFilters({
+          sameBranch: !!strict.same_branch,
+          sameCampus: !!strict.same_campus,
+          sameInterests: false,
+          sameSkills: false,
+          keywords: aiKeywords.length ? aiKeywords : parseFilterIntent(filterInput).keywords,
+        });
+        setAiSearchLoading(false);
+        return;
+      }
+    } catch (_) { /* fall through */ }
+
+    // Fallback: local keyword parsing
     const parsed = parseFilterIntent(filterInput);
     setIntentFilters({
       sameBranch: parsed.requiresSameBranch,
@@ -340,6 +373,7 @@ export default function Matchmaker() {
       sameSkills: parsed.requiresSameSkills,
       keywords: parsed.keywords,
     });
+    setAiSearchLoading(false);
   };
 
   return (

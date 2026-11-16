@@ -253,6 +253,8 @@ exports.getAllPosts = async (req, res) => {
             id: true,
             username: true,
             fullName: true,
+            collegeName: true,
+            headline: true,
             profileImageUrl: true,
           }
         },

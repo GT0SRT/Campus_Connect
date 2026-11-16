@@ -320,7 +320,7 @@ export default function App() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300 sm:text-xl"
           >
-            Connect with peers, ace mock interviews, and tap into alumni networks —
+            Connect with peers, build project squads, and tap into your campus network —
             all powered by AI.
           </motion.p>
 

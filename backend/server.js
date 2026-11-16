@@ -122,15 +122,37 @@ io.on('connection', (socket) => {
         if (typeof ack === 'function') ack({ ok: false, error: 'squadId required' });
         return;
       }
-      const member = await prisma.squadMember.findFirst({
-        where: { squadId: sid, userId: socket.userId },
-      });
-      if (!member) {
-        if (typeof ack === 'function') ack({ ok: false, error: 'Not a squad member' });
-        return;
+      let squad = await prisma.squad.findUnique({ where: { id: sid } }).catch(() => null);
+      if (!squad) {
+        squad = await prisma.squad.findFirst({ where: { name: { equals: sid, mode: 'insensitive' } } }).catch(() => null);
+      }
+      if (!squad) {
+        try {
+          squad = await prisma.squad.create({
+            data: {
+              name: sid === 'general' ? 'General' : sid.replace(/[-_]/g, ' '),
+              ownerId: socket.userId,
+            },
+          });
+        } catch {
+          squad = await prisma.squad.findFirst({ where: { name: sid } }).catch(() => null);
+        }
+      }
+      if (squad) {
+        const member = await prisma.squadMember.findFirst({
+          where: { squadId: squad.id, userId: socket.userId },
+        }).catch(() => null);
+        if (!member) {
+          await prisma.squadMember.create({
+            data: { squadId: squad.id, userId: socket.userId, role: 'member' },
+          }).catch(() => {});
+        }
       }
       socket.join(`squad:${sid}`);
-      if (typeof ack === 'function') ack({ ok: true });
+      if (squad && squad.id !== sid) {
+        socket.join(`squad:${squad.id}`);
+      }
+      if (typeof ack === 'function') ack({ ok: true, squadId: squad?.id || sid });
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, error: err.message || 'join failed' });
     }
@@ -138,9 +160,9 @@ io.on('connection', (socket) => {
 
   socket.on('send_squad_message', async (payload, ack) => {
     try {
-      const squadId = String(payload?.squadId || '').trim();
+      const rawSquadId = String(payload?.squadId || '').trim();
       const content = String(payload?.content || '').trim();
-      if (!squadId || !content) {
+      if (!rawSquadId || !content) {
         if (typeof ack === 'function') ack({ ok: false, error: 'squadId and content required' });
         return;
       }
@@ -148,15 +170,33 @@ io.on('connection', (socket) => {
         if (typeof ack === 'function') ack({ ok: false, error: 'Message too long' });
         return;
       }
-      const member = await prisma.squadMember.findFirst({
-        where: { squadId, userId: socket.userId },
-      });
-      if (!member) {
-        if (typeof ack === 'function') ack({ ok: false, error: 'Not a squad member' });
-        return;
+
+      let squad = await prisma.squad.findUnique({ where: { id: rawSquadId } }).catch(() => null);
+      if (!squad) {
+        squad = await prisma.squad.findFirst({ where: { name: { equals: rawSquadId, mode: 'insensitive' } } }).catch(() => null);
       }
+      if (!squad) {
+        squad = await prisma.squad.create({
+          data: {
+            name: rawSquadId === 'general' ? 'General' : rawSquadId.replace(/[-_]/g, ' '),
+            ownerId: socket.userId,
+          },
+        }).catch(() => null);
+      }
+
+      const targetSquadId = squad ? squad.id : rawSquadId;
+
+      const member = await prisma.squadMember.findFirst({
+        where: { squadId: targetSquadId, userId: socket.userId },
+      }).catch(() => null);
+      if (!member && squad) {
+        await prisma.squadMember.create({
+          data: { squadId: targetSquadId, userId: socket.userId, role: 'member' },
+        }).catch(() => {});
+      }
+
       const msg = await prisma.squadMessage.create({
-        data: { squadId, senderId: socket.userId, content },
+        data: { squadId: targetSquadId, senderId: socket.userId, content },
         include: {
           sender: {
             select: { id: true, username: true, fullName: true, profileImageUrl: true },
@@ -165,7 +205,7 @@ io.on('connection', (socket) => {
       });
       const out = {
         id: msg.id,
-        squadId: msg.squadId,
+        squadId: rawSquadId,
         content: msg.content,
         createdAt: msg.createdAt.toISOString(),
         sender: {
@@ -175,7 +215,10 @@ io.on('connection', (socket) => {
           avatar: msg.sender.profileImageUrl || '',
         },
       };
-      io.to(`squad:${squadId}`).emit('receive_squad_message', out);
+      io.to(`squad:${rawSquadId}`).emit('receive_squad_message', out);
+      if (targetSquadId !== rawSquadId) {
+        io.to(`squad:${targetSquadId}`).emit('receive_squad_message', out);
+      }
       if (typeof ack === 'function') ack({ ok: true, message: out });
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, error: err.message || 'send failed' });

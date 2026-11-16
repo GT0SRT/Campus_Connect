@@ -681,18 +681,56 @@ exports.sendDirectMessage = async (req, res) => {
     }
 };
 
+async function ensureSquadAndMembership(squadId, userId) {
+    const sid = toTrimmed(squadId);
+    if (!sid) return null;
+
+    let squad = await prisma.squad.findUnique({ where: { id: sid } }).catch(() => null);
+    if (!squad) {
+        squad = await prisma.squad.findFirst({
+            where: { name: { equals: sid, mode: "insensitive" } },
+        }).catch(() => null);
+    }
+    if (!squad) {
+        try {
+            squad = await prisma.squad.create({
+                data: {
+                    name: sid === "general" ? "General" : sid.replace(/[-_]/g, " "),
+                    ownerId: userId,
+                },
+            });
+        } catch {
+            squad = await prisma.squad.findFirst({ where: { name: sid } }).catch(() => null);
+        }
+    }
+
+    if (!squad) return null;
+
+    const existingMember = await prisma.squadMember.findFirst({
+        where: { squadId: squad.id, userId },
+    }).catch(() => null);
+
+    if (!existingMember) {
+        await prisma.squadMember.create({
+            data: { squadId: squad.id, userId, role: "member" },
+        }).catch(() => {});
+    }
+
+    return squad;
+}
+
 // Squad group chat (Prisma SquadMessage)
 exports.getSquadMessages = async (req, res) => {
     try {
-        const squadId = toTrimmed(req.params.squadId);
-        if (!squadId) return res.status(400).json({ error: 'squadId required' });
-        const member = await prisma.squadMember.findFirst({
-            where: { squadId, userId: req.user.id },
-        });
-        if (!member) return res.status(403).json({ error: 'Not a squad member' });
+        const rawSquadId = toTrimmed(req.params.squadId);
+        if (!rawSquadId) return res.status(400).json({ error: "squadId required" });
+
+        const squad = await ensureSquadAndMembership(rawSquadId, req.user.id);
+        if (!squad) return res.status(404).json({ error: "Squad not found" });
+
         const messages = await prisma.squadMessage.findMany({
-            where: { squadId },
-            orderBy: { createdAt: 'asc' },
+            where: { squadId: squad.id },
+            orderBy: { createdAt: "asc" },
             take: 200,
             include: {
                 sender: { select: { id: true, username: true, fullName: true, profileImageUrl: true } },
@@ -700,14 +738,14 @@ exports.getSquadMessages = async (req, res) => {
         });
         const out = messages.map((m) => ({
             id: m.id,
-            squadId: m.squadId,
+            squadId: rawSquadId,
             content: m.content,
             createdAt: m.createdAt.toISOString(),
             sender: {
                 id: m.sender.id,
                 username: m.sender.username,
                 name: m.sender.fullName || m.sender.username,
-                avatar: m.sender.profileImageUrl || '',
+                avatar: m.sender.profileImageUrl || "",
             },
         }));
         return res.json({ messages: out });
@@ -718,34 +756,39 @@ exports.getSquadMessages = async (req, res) => {
 
 exports.postSquadMessage = async (req, res) => {
     try {
-        const squadId = toTrimmed(req.params.squadId);
+        const rawSquadId = toTrimmed(req.params.squadId);
         const content = toTrimmed(req.body?.content);
-        if (!squadId) return res.status(400).json({ error: 'squadId required' });
-        if (!content) return res.status(400).json({ error: 'content required' });
-        const member = await prisma.squadMember.findFirst({
-            where: { squadId, userId: req.user.id },
-        });
-        if (!member) return res.status(403).json({ error: 'Not a squad member' });
+        if (!rawSquadId) return res.status(400).json({ error: "squadId required" });
+        if (!content) return res.status(400).json({ error: "content required" });
+
+        const squad = await ensureSquadAndMembership(rawSquadId, req.user.id);
+        if (!squad) return res.status(404).json({ error: "Squad not found" });
+
         const msg = await prisma.squadMessage.create({
-            data: { squadId, senderId: req.user.id, content },
+            data: { squadId: squad.id, senderId: req.user.id, content },
             include: {
                 sender: { select: { id: true, username: true, fullName: true, profileImageUrl: true } },
             },
         });
         const out = {
             id: msg.id,
-            squadId: msg.squadId,
+            squadId: rawSquadId,
             content: msg.content,
             createdAt: msg.createdAt.toISOString(),
             sender: {
                 id: msg.sender.id,
                 username: msg.sender.username,
                 name: msg.sender.fullName || msg.sender.username,
-                avatar: msg.sender.profileImageUrl || '',
+                avatar: msg.sender.profileImageUrl || "",
             },
         };
-        const io = req.app.get('io');
-        if (io) io.to(`squad:${squadId}`).emit('receive_squad_message', out);
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`squad:${rawSquadId}`).emit("receive_squad_message", out);
+            if (squad.id !== rawSquadId) {
+                io.to(`squad:${squad.id}`).emit("receive_squad_message", out);
+            }
+        }
         return res.status(201).json({ message: out });
     } catch (error) {
         return res.status(500).json({ error: error.message });

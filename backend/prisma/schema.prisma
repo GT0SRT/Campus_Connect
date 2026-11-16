@@ -20,6 +20,8 @@ model User {
   password                  String?
   authProvider              String   @default("LOCAL")
   fullName                  String?  @default("")
+  collegeName               String?  @default("")
+  headline                  String?  @default("")
   profileImageUrl           String?  @default("")
   about                     String?  @default("")
   tags                      String[] @default([])
