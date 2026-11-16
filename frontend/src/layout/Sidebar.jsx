@@ -5,7 +5,6 @@ import {
   User,
   LogOut,
   X,
-  Settings as SettingsIcon,
   Handshake,
   Bot,
   UsersRound,
@@ -80,7 +79,6 @@ export default function Sidebar({ onItemClick, onClose }) {
       <Item to="/squad" label="Squad" Icon={UsersRound} theme={theme} onItemClick={onItemClick} />
 
       <Item to={profileRoute} label="Profile" Icon={User} theme={theme} onItemClick={onItemClick} />
-      <Item to="/settings" label="Settings" Icon={SettingsIcon} theme={theme} onItemClick={onItemClick} />
 
       <div className={`mt-auto pt-4 border-t ${theme === 'dark' ? 'border-slate-700/50' : 'border-gray-200/50'} px-2`}>
         <button

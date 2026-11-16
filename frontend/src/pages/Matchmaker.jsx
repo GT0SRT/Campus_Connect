@@ -1,12 +1,9 @@
 import TalentCard from "../components/matchmaker/TalentCard";
-import { AnimatePresence, motion } from "framer-motion";
 import { useMatchmakerController } from "../hooks/useMatchmakerController";
 import { useUserStore } from "../store/useUserStore";
-import { RotateCcw, SendHorizontal, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, RotateCcw, SendHorizontal, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { generateConnectionMessage, sendConnectionRequest } from "../services/squadService";
-
-const MotionDiv = motion.div;
 
 const BRANCH_KEYWORDS = [
   "my branch",
@@ -154,6 +151,8 @@ export default function Matchmaker() {
   });
   const [connectNotice, setConnectNotice] = useState(null);
   const [aiSearchLoading, setAiSearchLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
   const {
     matches,
     handleSwipe,
@@ -191,9 +190,9 @@ export default function Matchmaker() {
     };
   }, [filterInput, intentFilters, manualFilters]);
 
-  const visibleMatches = useMemo(
-    () =>
-      matches.filter((candidate) => {
+  const visibleMatches = useMemo(() => {
+    return matches
+      .map((candidate) => {
         const candidateBranch = normalizeText(candidate?.branch || "");
         const candidateCampus = normalizeText(candidate?.campus || "");
         const commonInterestsCount = Array.isArray(candidate?.commonInterests)
@@ -203,24 +202,32 @@ export default function Matchmaker() {
           ? candidate.commonSkills.length
           : 0;
 
-        if (effectiveFilters.sameBranch && myBranch && candidateBranch !== myBranch) {
-          return false;
+        if (effectiveFilters.sameBranch && myBranch) {
+          const branchMatches =
+            candidateBranch.includes(myBranch) ||
+            myBranch.includes(candidateBranch) ||
+            (candidateBranch.includes("cse") && myBranch.includes("cse"));
+          if (!branchMatches) return null;
         }
 
-        if (effectiveFilters.sameCampus && myCampus && candidateCampus !== myCampus) {
-          return false;
+        if (effectiveFilters.sameCampus && myCampus) {
+          const campusMatches =
+            candidateCampus.includes(myCampus) ||
+            myCampus.includes(candidateCampus) ||
+            (candidateCampus.includes("rgpv") && myCampus.includes("rgpv"));
+          if (!campusMatches) return null;
         }
 
         if (effectiveFilters.sameInterests && commonInterestsCount === 0) {
-          return false;
+          return null;
         }
 
         if (effectiveFilters.sameSkills && commonSkillsCount === 0) {
-          return false;
+          return null;
         }
 
         if (!effectiveFilters.keywords.length) {
-          return true;
+          return { candidate, matchRank: 0 };
         }
 
         const searchText = normalizeText(
@@ -228,15 +235,37 @@ export default function Matchmaker() {
             candidate.name,
             candidate.branch,
             candidate.campus,
+            candidate.bio,
             ...(candidate.skills || []),
             ...(candidate.interests || []),
+            ...(candidate.lookingFor || []),
           ].join(" ")
         );
 
-        return effectiveFilters.keywords.every((token) => searchText.includes(token));
-      }),
-    [effectiveFilters, matches, myBranch, myCampus]
-  );
+        const matchedTokens = effectiveFilters.keywords.filter((token) =>
+          searchText.includes(token)
+        );
+
+        if (matchedTokens.length === 0) {
+          return null;
+        }
+
+        return { candidate, matchRank: matchedTokens.length };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.matchRank - a.matchRank)
+      .map((item) => item.candidate);
+  }, [effectiveFilters, matches, myBranch, myCampus]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [effectiveFilters]);
+
+  const totalPages = Math.ceil(visibleMatches.length / ITEMS_PER_PAGE) || 1;
+  const paginatedMatches = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return visibleMatches.slice(start, start + ITEMS_PER_PAGE);
+  }, [visibleMatches, currentPage]);
 
   const openConnectModal = async (candidate) => {
     setConnectNotice(null);
@@ -345,8 +374,8 @@ export default function Matchmaker() {
       });
       if (resp.ok) {
         const data = await resp.json();
-        const sf = data.scoring_filters || {};
-        const strict = data.strict_filters || {};
+        const sf = data.filters?.scoring_filters || data.scoring_filters || {};
+        const strict = data.filters?.strict_filters || data.strict_filters || {};
         const aiKeywords = [
           ...(sf.skills_any || []),
           ...(sf.interests_any || []),
@@ -377,14 +406,14 @@ export default function Matchmaker() {
   };
 
   return (
-    <div className="space-y-2 overflow-y-auto [&::-webkit-scrollbar]:hidden pb-2 transition-colors bg-transparent px-2 md:px-4">
+    <div className="space-y-4 pb-20 transition-colors bg-transparent px-2 md:px-3">
 
       {/* Header */}
       <div className="max-w-2xl mx-auto text-center">
-        <h1 className={`text-3xl font-bold mb-1 ${isDark ? "text-slate-100" : "text-gray-900"}`}>
+        <h1 className={`text-2xl md:text-3xl font-bold mb-1 ${isDark ? "text-slate-100" : "text-gray-900"}`}>
           Find Teammates
         </h1>
-        <p className={`text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+        <p className={`text-xs md:text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
           Discover talent for projects, and then connect.
         </p>
 
@@ -412,7 +441,7 @@ export default function Matchmaker() {
       </div>
 
       <div
-        className={`max-w-2xl mb-10 mx-auto rounded-2xl border backdrop-blur-xl p-3 md:p-4 ${isDark
+        className={`max-w-2xl mb-4 mx-auto rounded-2xl border backdrop-blur-xl p-3 md:p-4 ${isDark
           ? "border-slate-700/40 bg-slate-900/50"
           : "border-gray-200/50 bg-white/60"
           }`}
@@ -420,19 +449,21 @@ export default function Matchmaker() {
         <form onSubmit={handleFilterSubmit} className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <div className={`flex flex-1 items-center gap-2 rounded-xl border px-4 py-3 ${isDark ? 'border-slate-700 bg-slate-900/60' : 'border-gray-200 bg-white/70'}`}>
-              <Sparkles className={`h-4 w-4 text-cyan-500`} />
+              <Sparkles className={`h-4 w-4 ${aiSearchLoading ? "animate-spin text-cyan-400" : "text-cyan-500"}`} />
               <input
                 value={filterInput}
                 onChange={(event) => setFilterInput(event.target.value)}
-                placeholder="Find me a teammate for my college major project"
+                disabled={aiSearchLoading}
+                placeholder="e.g. find a React developer for a hackathon"
                 className={`w-full bg-transparent outline-none text-sm ${isDark ? 'text-slate-100 placeholder:text-slate-400' : 'text-gray-800 placeholder:text-gray-500'}`}
               />
               <button
                 type="submit"
+                disabled={aiSearchLoading}
                 aria-label="Send filter query"
-                className={`inline-flex items-center rounded-xl cursor-pointer text-sm font-semibold transition text-cyan-500`}
+                className={`inline-flex items-center rounded-xl cursor-pointer text-sm font-semibold transition ${aiSearchLoading ? "text-cyan-300 opacity-50 cursor-not-allowed" : "text-cyan-500"}`}
               >
-                <SendHorizontal className="h-4 w-4" />
+                {aiSearchLoading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
               </button>
             </div>
 
@@ -540,53 +571,97 @@ export default function Matchmaker() {
             >
               Same Skills
             </button>
-            <span className={`rounded-full px-2.5 py-1 font-medium border ${isDark ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" : "bg-cyan-100 text-cyan-700 border-cyan-200"}`}>
-              Pro tip: Use filters to find better matches. Try searching for specific skills, interests, or campus!
+            <span className={`rounded-full px-2.5 py-1 font-medium border ${isDark ? "bg-slate-800 text-slate-400 border-slate-700" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
+              Try: "React developer for hackathon"
             </span>
           </div>
-
-          <p className={`text-xs ${isDark ? "text-slate-300" : "text-gray-600"}`}>
-            Connect opens a message composer and sends a connection request, same as Profile.
-          </p>
         </form>
       </div>
 
-      {/* Swipe Stack */}
-      <div className="relative mx-auto h-screen w-full max-w-md">
-
-        {visibleMatches.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-8 text-center text-gray-500">
-            No compatible matches found.
+      {/* LinkedIn-style Profile Grid */}
+      <div className="max-w-6xl mx-auto pb-8">
+        {aiSearchLoading ? (
+          <div className={`flex flex-col items-center justify-center py-16 gap-3 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+            <Sparkles className="h-6 w-6 animate-pulse text-cyan-500" />
+            <p className="text-sm">AI is finding your best matches…</p>
+          </div>
+        ) : visibleMatches.length === 0 ? (
+          <div className={`rounded-2xl border p-10 text-center ${isDark ? "border-slate-700/40 bg-slate-900/50 text-slate-400" : "border-gray-200 bg-white/60 text-gray-500"}`}>
+            <p className="text-base font-medium mb-1">No matches found</p>
+            <p className="text-sm">Try clearing filters or adjusting your search.</p>
           </div>
         ) : (
           <>
-            <AnimatePresence mode="wait">
-              <MotionDiv
-                key={visibleMatches[0].uid}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                onDragEnd={(event, info) => {
-                  if (info.offset.x > 120) openConnectModal(visibleMatches[0]);
-                  if (info.offset.x < -120) handleSwipe("left", visibleMatches[0]?.uid);
-                }}
-                initial={{ opacity: 0, x: 18 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{
-                  x: 400,
-                  opacity: 0,
-                  rotate: 4,
-                  transition: { duration: 0.3 }
-                }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="absolute w-full z-30 cursor-grab active:cursor-grabbing"
-              >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {paginatedMatches.map((candidate) => (
                 <TalentCard
-                  u={visibleMatches[0]}
-                  onSkip={() => handleSkip(visibleMatches[0]?.uid)}
-                  onConnect={() => openConnectModal(visibleMatches[0])}
+                  key={candidate.uid}
+                  u={candidate}
+                  onConnect={() => openConnectModal(candidate)}
                 />
-              </MotionDiv>
-            </AnimatePresence>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-3 border-t border-slate-200/60 dark:border-slate-800/60">
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
+                  Showing <span className="font-semibold text-cyan-600 dark:text-cyan-400">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{" "}
+                  <span className="font-semibold text-cyan-600 dark:text-cyan-400">{Math.min(currentPage * ITEMS_PER_PAGE, visibleMatches.length)}</span> of{" "}
+                  <span className="font-semibold text-cyan-600 dark:text-cyan-400">{visibleMatches.length}</span> candidates
+                </p>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                      currentPage === 1
+                        ? "opacity-40 cursor-not-allowed border-transparent"
+                        : isDark
+                        ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 shadow-sm"
+                    }`}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <span>Prev</span>
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                    <button
+                      key={pg}
+                      type="button"
+                      onClick={() => setCurrentPage(pg)}
+                      className={`h-7 w-7 rounded-lg text-xs font-semibold transition ${
+                        currentPage === pg
+                          ? "bg-cyan-600 text-white shadow-sm shadow-cyan-600/30"
+                          : isDark
+                          ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                          : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {pg}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                      currentPage === totalPages
+                        ? "opacity-40 cursor-not-allowed border-transparent"
+                        : isDark
+                        ? "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 shadow-sm"
+                    }`}
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

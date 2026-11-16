@@ -1,6 +1,5 @@
-import MatchRing from "./MatchRing";
 import { useUserStore } from "../../store/useUserStore";
-import { UserCircle2 } from "lucide-react";
+import { UserCircle2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -24,170 +23,187 @@ export default function TalentCard({ u, onSkip, onConnect, showActions = true })
     ? u.matchReasons
     : [];
 
+  const skills = Array.isArray(u?.commonSkills) && u.commonSkills.length > 0
+    ? u.commonSkills
+    : Array.isArray(u?.skills) ? u.skills : [];
+
   return (
     <div
-      className={`relative border-t-cyan-400 border-t-4 rounded-2xl border
-    transition-all duration-300 
-    p-6 pb-28 
-    flex flex-col justify-between
-
-    ${isDark
-          ? "bg-slate-900/60 border-slate-700/60 shadow-[0_10px_30px_rgba(2,6,23,0.45)] hover:shadow-[0_10px_40px_rgba(6,182,212,0.35)] hover:-translate-y-1"
-          : "bg-white/65 border-gray-200/60 shadow-[0_10px_40px_rgba(79,70,229,0.08)] hover:shadow-[0_10px_40px_rgba(6,182,212,0.30)] hover:-translate-y-1"
-        }
-  `}
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between hover:shadow-md hover:-translate-y-0.5 ${
+        isDark
+          ? "bg-slate-900/90 border-slate-700/60 shadow-[0_4px_20px_rgba(2,6,23,0.3)]"
+          : "bg-white border-slate-200 shadow-sm"
+      }`}
     >
-
-      {/* ----------------- TOP CONTENT ----------------- */}
-      <div className="mb-4">
-        {/* Header section */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-5">
-            <MatchRing percentage={scorePct}>
-              {u.profile_pic && !showImageFallback ? (
-                <img
-                  src={u.profile_pic}
-                  alt={u.name}
-                  className="w-14 h-14 rounded-full object-cover"
-                  onError={() => setShowImageFallback(true)}
-                />
-              ) : (
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isDark ? "bg-slate-700" : "bg-gray-200"}`}>
-                  <UserCircle2 className={`h-8 w-8 ${isDark ? "text-slate-300" : "text-gray-500"}`} />
-                </div>
-              )}
-            </MatchRing>
-
-            <div className="leading-tight">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className={`text-lg font-semibold ${isDark ? "text-slate-100" : "text-gray-900"}`}>
-                  {u.name}
-                </h2>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "bg-cyan-100 text-cyan-800"}`}>
-                  {scorePct}% match
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate(`/profile/${profileUsername}`)}
-                className={`mt-1 text-sm underline-offset-2 transition hover:underline ${isDark ? "text-cyan-300" : "text-cyan-700"}`}
-              >
-                @{profileUsername}
-              </button>
-            </div>
-          </div>
-
+      {/* Top Banner Accent */}
+      <div className="h-12 bg-gradient-to-r from-cyan-500/20 via-sky-500/15 to-indigo-500/20 relative px-3 flex items-center justify-end">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+              isDark
+                ? "bg-cyan-500/25 text-cyan-300 border border-cyan-500/40"
+                : "bg-cyan-50 text-cyan-700 border border-cyan-200"
+            }`}
+          >
+            {scorePct}% Match
+          </span>
           {u.openToConnect && (
-            <span className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full font-medium">
+            <span className="text-[10px] font-medium px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 rounded-full">
               Open
             </span>
           )}
         </div>
+      </div>
 
-        {u.bio ? (
-          <p className={`mt-4 text-sm ${isDark ? "text-slate-300" : "text-gray-600"}`}>
+      {/* Main Content Area */}
+      <div className="px-4 pb-4 pt-0 -mt-6 flex flex-col flex-1">
+        {/* Avatar */}
+        <div className="mb-2">
+          {u.profile_pic && !showImageFallback ? (
+            <img
+              src={u.profile_pic}
+              alt={u.name}
+              className={`w-12 h-12 rounded-full object-cover border-2 shadow-sm ${
+                isDark ? "border-slate-900" : "border-white"
+              }`}
+              onError={() => setShowImageFallback(true)}
+            />
+          ) : (
+            <div
+              className={`w-12 h-12 rounded-full flex items-center justify-center border-2 shadow-sm ${
+                isDark
+                  ? "border-slate-900 bg-slate-800 text-slate-300"
+                  : "border-white bg-slate-100 text-slate-500"
+              }`}
+            >
+              <UserCircle2 className="h-7 w-7" />
+            </div>
+          )}
+        </div>
+
+        {/* User Info */}
+        <div className="min-w-0">
+          <h3
+            className={`text-sm font-bold truncate ${
+              isDark ? "text-slate-100" : "text-slate-900"
+            }`}
+          >
+            {u.name}
+          </h3>
+          <button
+            type="button"
+            onClick={() => navigate(`/profile/${profileUsername}`)}
+            className={`text-xs hover:underline truncate block text-left font-medium ${
+              isDark ? "text-cyan-400" : "text-cyan-600"
+            }`}
+          >
+            @{profileUsername}
+          </button>
+          {(u.branch || u.campus) && (
+            <p
+              className={`text-xs truncate mt-0.5 ${
+                isDark ? "text-slate-400" : "text-slate-500"
+              }`}
+            >
+              {[u.branch, u.campus].filter(Boolean).join(" · ")}
+            </p>
+          )}
+        </div>
+
+        {/* Bio */}
+        {u.bio && (
+          <p
+            className={`text-xs mt-2 line-clamp-2 leading-relaxed ${
+              isDark ? "text-slate-300" : "text-slate-600"
+            }`}
+          >
             {u.bio}
           </p>
-        ) : null}
+        )}
 
+        {/* Why Matched Badge */}
         {matchReasons.length > 0 && (
-          <Section title="Why this match" isDark={isDark}>
-            <div className="flex flex-wrap gap-2">
-              {matchReasons.slice(0, 6).map((reason, index) => (
-                <span
-                  key={`${reason}-${index}`}
-                  className={`px-2.5 py-1 text-xs rounded-full font-medium ${isDark
-                    ? "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
-                    : "bg-emerald-50 text-emerald-800 border border-emerald-200"}`}
-                >
-                  {reason}
-                </span>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* Shared Skills */}
-        <Section title="Skills" isDark={isDark}>
-          <TagList values={u.commonSkills?.length ? u.commonSkills : u.skills} emptyText="No skills listed" isDark={isDark} />
-        </Section>
-
-        {/* Shared Interests */}
-        <Section title="Interests" isDark={isDark}>
-          <TagList values={u.commonInterests?.length ? u.commonInterests : u.interests} emptyText="No interests listed" isDark={isDark} />
-        </Section>
-      </div>
-
-      {/* ----------------- ACTION BAR ----------------- */}
-      <div className="absolute bottom-6 left-6 right-6">
-        {showActions ? (
-          <div className={`space-y-2 rounded-xl border p-3 ${isDark ? "border-slate-700/60 bg-slate-900/35" : "border-white/60 bg-white/45"}`}>
-            <p className={`text-xs text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-              Skip moves to next profile, Connect sends teammate intent.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={onSkip}
-                className={`py-2.5 rounded-xl font-medium transition ${isDark
-                  ? "bg-red-500/10 text-red-300 border border-red-500/20 hover:bg-red-500/20"
-                  : "bg-red-100/70 text-red-600 border border-red-200/70 hover:bg-red-200/70"
-                  }`}
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {matchReasons.slice(0, 2).map((r, i) => (
+              <span
+                key={i}
+                className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  isDark
+                    ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/25"
+                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                }`}
               >
-                Skip
-              </button>
-
-              <button
-                onClick={onConnect}
-                className={`py-2.5 rounded-xl font-medium transition ${isDark
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30"
-                  : "bg-cyan-500/90 text-white border border-cyan-400/60 hover:bg-cyan-600"
-                  }`}
-              >
-                Connect
-              </button>
-            </div>
+                ✓ {r}
+              </span>
+            ))}
           </div>
-        ) : (
-          // SAME HEIGHT PLACEHOLDER (for background cards)
-          <div className="h-22"></div>
+        )}
+
+        {/* Skills */}
+        {skills.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {skills.slice(0, 3).map((s, i) => (
+              <span
+                key={i}
+                className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
+                  isDark
+                    ? "bg-slate-800 text-slate-300 border border-slate-700"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {s}
+              </span>
+            ))}
+            {skills.length > 3 && (
+              <span
+                className={`text-[10px] px-1 py-0.5 rounded-md ${
+                  isDark ? "text-slate-400" : "text-slate-500"
+                }`}
+              >
+                +{skills.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Action Button */}
+        {showActions && (
+          <div className="mt-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {onSkip ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  className={`py-1.5 rounded-xl text-xs font-semibold transition ${
+                    isDark
+                      ? "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                      : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+                  }`}
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  onClick={onConnect}
+                  className="py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  <span>Connect</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onConnect}
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm shadow-cyan-600/20 active:scale-[0.98]"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Connect</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
-    </div>
-  );
-}
-
-/* ----------------- Subcomponents ----------------- */
-
-function Section({ title, children, isDark }) {
-  return (
-    <div className="mt-6">
-      <p className={`text-xs uppercase tracking-widest font-medium mb-2 ${isDark ? "text-slate-400" : "text-gray-500"}`}>
-        {title}
-      </p>
-      {children}
-    </div>
-  );
-}
-
-function TagList({ values = [], emptyText, isDark }) {
-  if (!values?.length) {
-    return <p className={`text-xs italic ${isDark ? "text-slate-500" : "text-gray-300"}`}>{emptyText}</p>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {values.slice(0, 4).map((item, index) => (
-        <span
-          key={`${item}-${index}`}
-          className={`px-3 py-1 text-xs rounded-full font-medium ${isDark
-            ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-            : "bg-indigo-50 text-indigo-600"
-            }`}
-        >
-          {item}
-        </span>
-      ))}
     </div>
   );
 }
